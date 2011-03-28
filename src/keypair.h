@@ -28,8 +28,9 @@ class KeyPair: node::ObjectWrap {
     static Handle<Value> New(const Arguments &args);
     static Handle<Value> New_RSA_KeyPair(const Arguments &args);
     static Handle<Value> New_ECDSA_KeyPair(const Arguments &args);
-    static Handle<Value> Parse_ECDSA_KeyPair(const Arguments &args);
     static Handle<Value> Parse_RSA_KeyPair(const Arguments &args);
+    static Handle<Value> Parse_ECDSA_KeyPair(const Arguments &args);
+    static Handle<Value> Parse_DSA_KeyPair(const Arguments &args);
   private:
     ~KeyPair();
 };

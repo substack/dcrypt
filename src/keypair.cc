@@ -11,8 +11,9 @@ void KeyPair::Initialize(Handle<Object> target) {
 
   NODE_SET_PROTOTYPE_METHOD(constructor, "newRSA", New_RSA_KeyPair);
   NODE_SET_PROTOTYPE_METHOD(constructor, "newECDSA", New_ECDSA_KeyPair);
-  NODE_SET_PROTOTYPE_METHOD(constructor, "parseECDSA", Parse_ECDSA_KeyPair);
   NODE_SET_PROTOTYPE_METHOD(constructor, "parseRSA", Parse_RSA_KeyPair);
+  NODE_SET_PROTOTYPE_METHOD(constructor, "parseECDSA", Parse_ECDSA_KeyPair);
+  NODE_SET_PROTOTYPE_METHOD(constructor, "parseDSA", Parse_DSA_KeyPair);
   Local<ObjectTemplate> proto = constructor->PrototypeTemplate();
 
   target->Set(String::NewSymbol("KeyPair"), constructor->GetFunction());
@@ -259,7 +260,7 @@ Handle<Value> KeyPair::Parse_ECDSA_KeyPair(const Arguments &args) {
   return scope.Close(o);
 }
 
-Handle<Value> KeyPair::Parse_RSA_KeyPair(const Arguments &args) {
+Handle<Value> KeyPair::Parse_DSA_KeyPair(const Arguments &args) {
   HandleScope scope;
   
   char *body;
@@ -290,6 +291,95 @@ Handle<Value> KeyPair::Parse_RSA_KeyPair(const Arguments &args) {
     )));
   }
     
+  bool isPublic = args[1]->IsBoolean() && args[1]->IsTrue();
+  
+  DSA *dsa = args[1]->IsBoolean() && args[1]->IsTrue()
+    ? PEM_read_bio_DSA_PUBKEY(bio, NULL, NULL, NULL)
+    : PEM_read_bio_DSAPrivateKey(bio, NULL, NULL, NULL)
+  ;
+  
+  if (dsa == NULL) {
+    return ThrowException(Exception::Error(String::New(
+      ERR_error_string(ERR_get_error(), NULL)
+    )));
+  }
+  
+  Handle<Object> o = Object::New();
+  
+  o->Set(
+    String::NewSymbol("p"),
+    dsa->p ? String::New(BN_bn2hex(dsa->p)) : Undefined()
+  );
+  
+  o->Set(
+    String::NewSymbol("q"),
+    dsa->q ? String::New(BN_bn2hex(dsa->q)) : Undefined()
+  );
+  
+  o->Set(
+    String::NewSymbol("g"),
+    dsa->g ? String::New(BN_bn2hex(dsa->g)) : Undefined()
+  );
+  
+  o->Set(
+    String::NewSymbol("priv_key"),
+    dsa->priv_key ? String::New(BN_bn2hex(dsa->priv_key)) : Undefined()
+  );
+  o->Set(String::NewSymbol("x"), o->Get(String::NewSymbol("priv_key")));
+  
+  o->Set(
+    String::NewSymbol("pub_key"),
+    dsa->pub_key ? String::New(BN_bn2hex(dsa->pub_key)) : Undefined()
+  );
+  o->Set(String::NewSymbol("y"), o->Get(String::NewSymbol("pub_key")));
+  
+  o->Set(
+    String::NewSymbol("r"),
+    dsa->r ? String::New(BN_bn2hex(dsa->r)) : Undefined()
+  );
+  
+  o->Set(
+    String::NewSymbol("kinv"),
+    dsa->kinv ? String::New(BN_bn2hex(dsa->kinv)) : Undefined()
+  );
+  
+  BIO_free(bio);
+  DSA_free(dsa);
+  
+  return scope.Close(o);
+}
+
+Handle<Value> KeyPair::Parse_RSA_KeyPair(const Arguments &args) {
+  HandleScope scope;
+  
+  char *body;
+  size_t body_len;
+  
+  if (args[0]->IsString()) {
+    Local<String> str = args[0]->ToString();
+    body_len = str->Length();
+    body = new char[body_len + 1];
+    str->WriteUtf8(body);
+  }
+  else if (Buffer::HasInstance(args[0])) {
+    Local<Object> buf = args[0]->ToObject();
+    body = Buffer::Data(buf);
+    body_len = Buffer::Length(buf);
+  }
+  else {
+    return ThrowException(Exception::Error(String::New(
+      "PEM body must be a Buffer or string"
+    )));
+  }
+  
+  BIO *bio = BIO_new_mem_buf(body, body_len);
+  
+  if (bio == NULL) {
+    return ThrowException(Exception::Error(String::New(
+      ERR_error_string(ERR_get_error(), NULL)
+    )));
+  }
+  
   bool isPublic = args[1]->IsBoolean() && args[1]->IsTrue();
   
   RSA *rsa = isPublic

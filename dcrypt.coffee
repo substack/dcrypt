@@ -55,6 +55,10 @@ exports.keypair.newECDSA = (curve) ->
 exports.keypair.parseECDSA = (filename, public) ->
   return (new KeyPair).parseECDSA(filename, public)
 
+# parseDSA parses the raw DSA parameters from a PEM file's contents
+exports.keypair.parseDSA = (filename, public) ->
+  return (new KeyPair).parseDSA(filename, public)
+
 # parseRSA parses the raw RSA parameters from a PEM file's contents
 exports.keypair.parseRSA = (filename, public) ->
   return (new KeyPair).parseRSA(filename, public)
